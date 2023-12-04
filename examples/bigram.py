@@ -2,14 +2,10 @@ import token
 from numpy import char
 import torch
 
-from ..bigram_language_model import BigramLanguageModel
-from ..char_tokenizer import CharTokenizer
+from femtotransformers.models.bigram.bigram_modeling import BigramLanguageModel
+from femtotransformers.models.tokenization_utils_base import CharTokenizer
+from femtotransformers.models.data_loader import get_batch
 
-if torch.cuda.is_available():
-    device = torch.device('cuda')
-else:
-    device = torch.device('cpu')
-    
 # hyperparameters
 batch_size = 32  # how many independent sequences will we process in parallel?
 block_size = 8  # what is the maximum context length for predictions?
@@ -23,7 +19,7 @@ eval_iters = 200
 torch.manual_seed(1337)
 
 # wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
-with open('/workspaces/femtotransformer/examples/input.txt', 'r', encoding='utf-8') as f:
+with open('examples/input.txt', 'r', encoding='utf-8') as f:
     text = f.read()
 
 # here are all the unique characters that occur in this text
@@ -31,7 +27,7 @@ chars = sorted(list(set(text)))
 print('Vocabulary: ', chars)
 vocab_size = len(chars)
 
-char_tokenizer = CharTokenizer.CharTokenizer()
+char_tokenizer = CharTokenizer()
 char_tokenizer.fit(chars)
 
 # Train and test splits
@@ -40,31 +36,21 @@ n = int(0.9*len(data))  # first 90% will be train, rest val
 train_data = data[:n]
 val_data = data[n:]
 
-# data loading
-def get_batch(split):
-    # generate a small batch of data of inputs x and targets y
-    data = train_data if split == 'train' else val_data
-    ix = torch.randint(len(data) - block_size, (batch_size,))
-    x = torch.stack([data[i:i+block_size] for i in ix])
-    y = torch.stack([data[i+1:i+block_size+1] for i in ix])
-    x, y = x.to(device), y.to(device)
-    return x, y
-
-
 @torch.no_grad()
 def estimate_loss():
     out = {}
     model.eval()
     for split in ['train', 'val']:
+        data = train_data if split == 'train' else val_data
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
-            X, Y = get_batch(split)
+            X, Y = get_batch(data, block_size=block_size,
+                             batch_size=batch_size, device=device)
             logits, loss = model(X, Y)
             losses[k] = loss.item()
         out[split] = losses.mean()
     model.train()
     return out
-
 
 model = BigramLanguageModel(vocab_size)
 m = model.to(device)
@@ -81,7 +67,8 @@ for iter in range(max_iters):
             f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
     # sample a batch of data
-    xb, yb = get_batch('train')
+    xb, yb = get_batch(data, block_size=block_size,
+                             batch_size=batch_size, device=device)
 
     # evaluate the loss
     logits, loss = model(xb, yb)

@@ -114,3 +114,11 @@ build-release:
 	python setup.py bdist_wheel
 	python setup.py sdist
 	python utils/check_build.py
+
+build-install:
+	rm -rf dist
+	rm -rf build
+	python setup.py bdist_wheel
+	python setup.py sdist
+	python utils/check_build.py
+	pip install dist/*.whl

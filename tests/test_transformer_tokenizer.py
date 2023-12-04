@@ -19,9 +19,9 @@ def transformer_bpe_tokenizer():
     tokenizer = Tokenizer(BPE(unk_token="[UNK]"))
     trainer = BpeTrainer(special_tokens=["[UNK]", "[CLS]", "[SEP]", "[PAD]", "[MASK]"])
     tokenizer.pre_tokenizer = Whitespace()
-    files = ["/workspaces/femtotransformer/examples/input.txt"]  # Replace with the path to your dataset file
+    files = ["examples/input.txt"]  # Replace with the path to your dataset file
     tokenizer.train(files, trainer)
-    tokenizer.save("/workspaces/femtotransformer/examples/transformer_bpe_tokenizer.json")
+    tokenizer.save("examples/transformer_bpe_tokenizer.json")
     
     return tokenizer
 
