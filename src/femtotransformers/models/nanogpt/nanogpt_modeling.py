@@ -37,9 +37,9 @@ class Head(nn.Module):
 class MultiHeadAttention(nn.Module):
     """ multiple heads of self-attention in parallel """
 
-    def __init__(self, n_embd, dropout, num_heads, head_size):
+    def __init__(self, n_embd, block_size, dropout, num_heads, head_size):
         super().__init__()
-        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        self.heads = nn.ModuleList([Head(n_embd=n_embd, block_size=block_size,  dropout=dropout,head_size=head_size) for _ in range(num_heads)])
         self.proj = nn.Linear(head_size * num_heads, n_embd)
         self.dropout = nn.Dropout(dropout)
 
@@ -68,14 +68,14 @@ class FeedFoward(nn.Module):
 class Block(nn.Module):
     """ Transformer block: communication followed by computation """
 
-    def __init__(self, n_embd, n_head):
-        # n_embd: embedding dimension, n_head: the number of heads we'd like
+    def __init__(self, n_embd, block_size, dropout, num_heads):
+        # n_embd: embedding dimension, num_heads: the number of heads we'd like
         super().__init__()
-        head_size = n_embd // n_head
-        self.sa = MultiHeadAttention(n_head, head_size)
-        self.ffwd = FeedFoward(n_embd)
-        self.ln1 = nn.LayerNorm(n_embd)
-        self.ln2 = nn.LayerNorm(n_embd)
+        head_size = n_embd // num_heads
+        self.sa = MultiHeadAttention(n_embd, block_size, dropout, num_heads, head_size)
+        self.ffwd = FeedFoward(n_embd, dropout)
+        self.ln1 = nn.LayerNorm(n_embd, dropout)
+        self.ln2 = nn.LayerNorm(n_embd, dropout)
 
     def forward(self, x):
         x = x + self.sa(self.ln1(x))
@@ -84,13 +84,13 @@ class Block(nn.Module):
     
 class GPTLanguageModel(nn.Module):
 
-    def __init__(self, n_layer, n_head, n_embd, vocab_size, block_size, device):
+    def __init__(self, n_layer, vocab_size, n_embd, block_size, dropout, num_heads):
         super().__init__()
         # each token directly reads off the logits for the next token from a lookup table
         self.token_embedding_table = nn.Embedding(vocab_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
         self.blocks = nn.Sequential(
-            *[Block(n_embd, n_head=n_head) for _ in range(n_layer)])
+            *[Block(n_embd, block_size, dropout, num_heads) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd)  # final layer norm
         self.lm_head = nn.Linear(n_embd, vocab_size)
 

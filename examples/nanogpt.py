@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 
-import gpt_language_model.GPTLanguageModel
+from femtotransformers.models.nanogpt.nanogpt_tokenizer import NanoGptTokenizer
+from femtotransformers.models.nanogpt.nanogpt_modeling import GPTLanguageModel
 
-from char_tokenizer import CharTokenizer
 
 # hyperparameters
 batch_size = 4 #64  # how many independent sequences will we process in parallel?
@@ -15,7 +15,7 @@ learning_rate = 3e-4
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 eval_iters = 200
 n_embd = 384
-n_head = 6
+num_heads = 6
 n_layer = 6
 dropout = 0.2
 # ------------
@@ -23,7 +23,7 @@ dropout = 0.2
 torch.manual_seed(1337)
 
 # wget https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt
-with open('input.txt', 'r', encoding='utf-8') as f:
+with open('examples/input.txt', 'r', encoding='utf-8') as f:
     text = f.read()
 
 # here are all the unique characters that occur in this text
@@ -31,9 +31,9 @@ chars = sorted(list(set(text)))
 vocab_size = len(chars)
 
 # char tokenization
-char_tokenizer = CharTokenizer.CharTokenizer()
-char_tokenizer.fit(chars)
-data = torch.tensor(char_tokenizer.encode(text), dtype=torch.long)
+nanogpt_tokenizer = NanoGptTokenizer()
+nanogpt_tokenizer.fit(chars)
+data = torch.tensor(nanogpt_tokenizer.encode(text), dtype=torch.long)
 
 # Train and test splits
 n = int(0.9*len(data))  # first 90% will be train, rest val
@@ -51,7 +51,7 @@ val_data = data[n:]
 # utilization.  
 
 # data loading
-def get_batch(split):
+def get_batch(split, block_size=block_size, batch_size=batch_size):
     # generate a small batch of data of inputs x and targets y
     data = train_data if split == 'train' else val_data
     
@@ -67,46 +67,46 @@ def get_batch(split):
     return x, y
 
 
-@torch.no_grad()
-def estimate_loss():
-    out = {}
-    model.eval()
-    for split in ['train', 'val']:
-        losses = torch.zeros(eval_iters)
-        for k in range(eval_iters):
-            X, Y = get_batch(split)
-            logits, loss = model(X, Y)
-            losses[k] = loss.item()
-        out[split] = losses.mean()
-    model.train()
-    return out
+# @torch.no_grad()
+# def estimate_loss():
+#     out = {}
+#     model.eval()
+#     for split in ['train', 'val']:
+#         losses = torch.zeros(eval_iters)
+#         for k in range(eval_iters):
+#             X, Y = get_batch(split)
+#             logits, loss = model(X, Y)
+#             losses[k] = loss.item()
+#         out[split] = losses.mean()
+#     model.train()
+#     return out
 
-model = GPTLanguageModel()
-m = model.to(device)
-# print the number of parameters in the model
-print(sum(p.numel() for p in m.parameters())/1e6, 'M parameters')
+# model = GPTLanguageModel(n_layer=n_layer, vocab_size=vocab_size, n_embd=n_embd,block_size=block_size, dropout=dropout, num_heads=num_heads)
+# m = model.to(device)
+# # print the number of parameters in the model
+# print(sum(p.numel() for p in m.parameters())/1e6, 'M parameters')
 
-# create a PyTorch optimizer
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+# # create a PyTorch optimizer
+# optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-for iter in range(max_iters):
+# for iter in range(max_iters):
 
-    # every once in a while evaluate the loss on train and val sets
-    if iter % eval_interval == 0 or iter == max_iters - 1:
-        losses = estimate_loss()
-        print(
-            f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+#     # every once in a while evaluate the loss on train and val sets
+#     if iter % eval_interval == 0 or iter == max_iters - 1:
+#         losses = estimate_loss()
+#         print(
+#             f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
-    # sample a batch of data
-    xb, yb = get_batch('train')
+#     # sample a batch of data
+#     xb, yb = get_batch('train')
 
-    # evaluate the loss
-    logits, loss = model(xb, yb)
-    optimizer.zero_grad(set_to_none=True)
-    loss.backward()
-    optimizer.step()
+#     # evaluate the loss
+#     logits, loss = model(xb, yb)
+#     optimizer.zero_grad(set_to_none=True)
+#     loss.backward()
+#     optimizer.step()
 
-# generate from the model
-context = torch.zeros((1, 1), dtype=torch.long, device=device)
-print(char_tokenizer.decode(m.generate(context, max_new_tokens=500)[0].tolist()))
-# open('more.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))
+# # generate from the model
+# context = torch.zeros((1, 1), dtype=torch.long, device=device)
+# print(nanogpt_tokenizer.decode(m.generate(context, max_new_tokens=500)[0].tolist()))
+# # open('more.txt', 'w').write(decode(m.generate(context, max_new_tokens=10000)[0].tolist()))

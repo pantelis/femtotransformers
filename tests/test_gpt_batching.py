@@ -1,15 +1,16 @@
 import torch
-from ..gpt import get_batch
+from examples.nanogpt import get_batch
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 def test_get_batch_train():
     # Mocking the train_data and block_size
     train_data = torch.tensor([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     block_size = 3
     batch_size = 2
-    device = torch.device('cpu')
-
+    
     # Call the get_batch function with 'train' split
-    x, y = get_batch('train')
+    x, y = get_batch('train', block_size=block_size, batch_size=batch_size)
 
     # Assert the shape and values of x and y
     assert x.shape == (batch_size, block_size)
@@ -22,12 +23,12 @@ def test_get_batch_train():
 def test_get_batch_val():
     # Mocking the val_data and block_size
     val_data = torch.tensor([11, 12, 13, 14, 15, 16, 17, 18, 19, 20])
-    block_size = 4
-    batch_size = 3
+    block_size = 3
+    batch_size = 2
     device = torch.device('cpu')
 
     # Call the get_batch function with 'val' split
-    x, y = get_batch('val')
+    x, y = get_batch('val', block_size=block_size, batch_size=batch_size)
 
     # Assert the shape and values of x and y
     assert x.shape == (batch_size, block_size)

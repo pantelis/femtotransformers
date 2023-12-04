@@ -3,12 +3,12 @@
 # Import the functions you want to test
 from numpy import char
 from sympy import Idx
-from nano_gpt.char_tokenizer import CharTokenizer
+from femtotransformers.models.tokenization_utils_base import CharTokenizer
 
-filename = '/workspaces/artificial_intelligence/artificial_intelligence/aiml-common/lectures/nlp/transformers/transformers-from-scratch/nano_gpt/input.txt'
+filename = 'examples/input.txt'
 text = open(filename, 'r', encoding='utf-8').read()
 
-char_tokenizer = CharTokenizer.CharTokenizer()
+char_tokenizer = CharTokenizer()
 char_tokenizer.fit(text)
 print(char_tokenizer.char_to_idx)
 

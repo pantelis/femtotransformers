@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from data_model import EncodeInput, EncodeOutput, DecodeInput, DecodeOutput
+from .data_model import EncodeInput, EncodeOutput, DecodeInput, DecodeOutput
 
 
 class CharTokenizer:
