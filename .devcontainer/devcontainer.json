@@ -31,11 +31,20 @@
 	//"postCreateCommand": "",
 	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
 	"remoteUser": "vscode",
-	// "features": {
-	// 	"ghcr.io/devcontainers/features/sshd:1": {
-	// 		"version": "latest"
-	// 	},
-	// },
+	"features": {
+		"ghcr.io/devcontainers/features/common-utils:2": {
+			"installZsh": false,
+			"installOhMyZsh": false,
+			"upgradePackages": false,
+			"username": "vscode",
+			"uid": "1000",
+			"gid": "1000"
+		},
+		"ghcr.io/devcontainers/features/git:1": {
+			"version": "latest",
+			"ppa": false
+		}
+	},
 	"customizations": {
 		"vscode": {
 			"extensions": [
@@ -64,5 +73,5 @@
 		}
 	},
 	
-	"postStartCommand": "echo 'source /usr/share/bash-completion/completions/make' >> ~/.bashrc"
+	"postStartCommand": "echo 'source /usr/share/bash-completion/completions/make' >> ~/.bashrc && eval \"$(ssh-agent -s)\" && ssh-add -l || true"
 }
