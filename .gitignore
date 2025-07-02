@@ -167,3 +167,4 @@ tags
 
 # ruff
 .ruff_cache
+examples/nanogpt/nanogpt-model.pkl

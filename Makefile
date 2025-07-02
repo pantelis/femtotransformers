@@ -1,124 +1,129 @@
-.PHONY: deps_table_update modified_only_fixup extra_style_checks quality style fixup fix-copies test test-examples
+.PHONY: install install-dev format lint lint-check type-check test test-cov test-examples clean build deps-update deps-sync quality style fixup venv venv-recreate setup-dev docker-build-gpu docker-build-cpu docker-build docker-run-gpu docker-run-cpu ci-quality ci-test
+# Use stage 0 container pip constraints
+CONSTRAINTS := --constraint /etc/pip/constraint.txt
 
-# make sure to test the local checkout in scripts and not the pre-installed one (don't use quotes!)
 export PYTHONPATH = src
-
 check_dirs := examples tests src utils
+VENV_DIR := .venv
+VENV_PY := $(VENV_DIR)/bin/python
+UV := /usr/bin/uv
 
-modified_only_fixup:
-	$(eval modified_py_files := $(shell python utils/get_modified_files.py $(check_dirs)))
+# Create venv with access to system packages (from stage 0 container)
+$(VENV_DIR)/bin/activate:
+	rm -rf $(VENV_DIR)
+	python3 -m venv $(VENV_DIR) --system-site-packages
+
+# $(VENV_DIR)/bin/pip install uv
+
+venv: $(VENV_DIR)/bin/activate
+
+# Installation targets
+install: venv
+	$(UV) pip install -e . $(CONSTRAINTS)
+
+install-dev: venv
+	$(UV) pip install -e ".[dev]" $(CONSTRAINTS)
+
+
+# Development workflow targets
+format: venv
+	$(VENV_DIR)/bin/ruff format $(check_dirs)
+
+lint: venv
+	$(VENV_DIR)/bin/ruff check $(check_dirs) --fix
+
+lint-check: venv
+	$(VENV_DIR)/bin/ruff check $(check_dirs)
+
+type-check: venv
+	$(VENV_DIR)/bin/mypy src/femtotransformers
+
+# Combined quality checks
+quality: lint-check type-check
+	@echo "All quality checks passed!"
+
+# Quick style fix
+style: format lint
+	@echo "Code formatting and linting completed!"
+
+# Quick fix for modified files only
+fixup: venv
+	$(eval modified_py_files := $(shell $(VENV_PY) utils/get_modified_files.py $(check_dirs) 2>/dev/null || echo ""))
 	@if test -n "$(modified_py_files)"; then \
 		echo "Checking/fixing $(modified_py_files)"; \
-		ruff check $(modified_py_files) --fix; \
-		ruff format $(modified_py_files);\
+		$(VENV_DIR)/bin/ruff check $(modified_py_files) --fix; \
+		$(VENV_DIR)/bin/ruff format $(modified_py_files); \
+		$(VENV_DIR)/bin/mypy $(modified_py_files) || true; \
 	else \
 		echo "No library .py files were modified"; \
 	fi
 
-# Update src/femtotransformers/dependency_versions_table.py
-
-deps_table_update:
-	@python setup.py deps_table_update
-
-deps_table_check_updated:
-	@md5sum src/femtotransformers/dependency_versions_table.py > md5sum.saved
-	@python setup.py deps_table_update
-	@md5sum -c --quiet md5sum.saved || (printf "\nError: the version dependency table is outdated.\nPlease run 'make fixup' or 'make style' and commit the changes.\n\n" && exit 1)
-	@rm md5sum.saved
-
-# autogenerating code
-
-autogenerate_code: deps_table_update
-
-# Check that the repo is in a good state
-
-repo-consistency:
-	python utils/check_copies.py
-	python utils/check_table.py
-	python utils/check_dummies.py
-	python utils/check_repo.py
-	python utils/check_inits.py
-	python utils/check_config_docstrings.py
-	python utils/check_config_attributes.py
-	python utils/check_doctest_list.py
-	python utils/update_metadata.py --check-only
-	python utils/check_task_guides.py
-	python utils/check_docstrings.py
-
-# this target runs checks on all files
-
-quality:
-	ruff check $(check_dirs) setup.py conftest.py
-	ruff format --check $(check_dirs) setup.py conftest.py
-	python utils/custom_init_isort.py --check_only
-	python utils/sort_auto_mappings.py --check_only
-	python utils/check_doc_toc.py
-
-# Format source code automatically and check is there are any problems left that need manual fixing
-
-extra_style_checks:
-	python utils/custom_init_isort.py
-	python utils/sort_auto_mappings.py
-	python utils/check_doc_toc.py --fix_and_overwrite
-
-# this target runs checks on all files and potentially modifies some of them
-
-style:
-	ruff check $(check_dirs) setup.py conftest.py --fix
-	ruff format $(check_dirs) setup.py conftest.py
-	${MAKE} autogenerate_code
-	${MAKE} extra_style_checks
-
-# Super fast fix and check target that only works on relevant modified files since the branch was made
-
-fixup: modified_only_fixup extra_style_checks autogenerate_code repo-consistency
-
-# Make marked copies of snippets of codes conform to the original
-
-fix-copies:
-	python utils/check_copies.py --fix_and_overwrite
-	python utils/check_table.py --fix_and_overwrite
-	python utils/check_dummies.py --fix_and_overwrite
-	python utils/check_doctest_list.py --fix_and_overwrite
-	python utils/check_task_guides.py --fix_and_overwrite
-	python utils/check_docstrings.py --fix_and_overwrite
-
-# Run tests for the library
-
+# Testing targets
 test:
-	python -m pytest -n auto --dist=loadfile -s -v ./tests/
+	$(UV) run pytest
 
-# Run tests for examples
+test-cov:
+	$(UV) run pytest --cov=femtotransformers --cov-report=html --cov-report=term
 
 test-examples:
-	python -m pytest -n auto --dist=loadfile -s -v ./examples/
+	$(UV) run pytest examples/
+
+# Dependency management
+deps-update: venv
+	$(UV) pip compile pyproject.toml --upgrade $(CONSTRAINTS)
+
+deps-sync: venv
+	$(UV) pip compile pyproject.toml $(CONSTRAINTS) | $(UV) pip sync -
+
+deps-table-update: venv
+	$(VENV_PY) utils/update_dependency_table.py
+
+# Build and release targets
+clean:
+	rm -rf dist/
+	rm -rf build/
+	rm -rf *.egg-info/
+	find . -type d -name __pycache__ -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+
+build: clean
+	$(UV) build
+
+build-install: build
+	$(UV) pip install dist/*.whl $(CONSTRAINTS)
+
+# Utility targets
+venv-recreate:
+	rm -rf $(VENV_DIR)
+	$(MAKE) venv
 
 
-# Release stuff
+# Docker targets
+docker-build-gpu:
+	docker build -f docker/Dockerfile.nvidia.dgpu -t femtotransformers:gpu .
 
-pre-release:
-	python utils/release.py
+docker-build-cpu:
+	docker build -f docker/Dockerfile.cpu.amd64 -t femtotransformers:cpu .
 
-pre-patch:
-	python utils/release.py --patch
+docker-build: docker-build-gpu docker-build-cpu
 
-post-release:
-	python utils/release.py --post_release
+docker-run-gpu:
+	docker run --gpus all -it --rm \
+		-v $(PWD):/workspace \
+		-w /workspace \
+		femtotransformers:gpu
 
-post-patch:
-	python utils/release.py --post_release --patch
+docker-run-cpu:
+	docker run -it --rm \
+		-v $(PWD):/workspace \
+		-w /workspace \
+		femtotransformers:cpu
 
-build-release:
-	rm -rf dist
-	rm -rf build
-	python setup.py bdist_wheel
-	python setup.py sdist
-	python utils/check_build.py
+# Development setup
+setup-dev: install-dev
+	$(VENV_DIR)/bin/pre-commit install
+	@echo "Development environment setup complete!"
 
-build-install:
-	rm -rf dist
-	rm -rf build
-	python setup.py bdist_wheel
-	python setup.py sdist
-	python utils/check_build.py
-	pip install dist/*.whl
+# CI/CD helpers
+ci-quality: lint-check type-check
+ci-test: test-cov
