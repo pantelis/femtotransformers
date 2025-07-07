@@ -13,16 +13,17 @@ $(VENV_DIR)/bin/activate:
 	rm -rf $(VENV_DIR)
 	python3 -m venv $(VENV_DIR) --system-site-packages
 
-# $(VENV_DIR)/bin/pip install uv
-
 venv: $(VENV_DIR)/bin/activate
 
 # Installation targets
 install: venv
-	$(UV) pip install -e . $(CONSTRAINTS)
+	$(UV) pip install -e . 
+
+#$(CONSTRAINTS)
 
 install-dev: venv
-	$(UV) pip install -e ".[dev]" $(CONSTRAINTS)
+	$(UV) pip install -e ".[dev]" 
+#$(CONSTRAINTS)
 
 
 # Development workflow targets
@@ -127,3 +128,9 @@ setup-dev: install-dev
 # CI/CD helpers
 ci-quality: lint-check type-check
 ci-test: test-cov
+
+start:
+	$(MAKE) venv-recreate
+	$(MAKE) deps-sync
+	$(MAKE) install
+	@echo "To activate the virtual environment, run: source .venv/bin/activate"

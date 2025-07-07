@@ -7,7 +7,7 @@ This package attempts to teach foundational concepts of transformers and attenti
 This repo includes a docker container with NVIDIA support only. Make sure you have the appropriate GPU drivers and CUDA toolkit installed. This repo at this time is tested only to work with the pytorch docker container. In VS Code you can launch the repo with remote container support. After the container is launched you can install femtotransformer, run the following command:
 
 ```bash
-make build-install
+make start
 ```
 
 This package will be updated to support pip install in the future and pushed to pypi. 

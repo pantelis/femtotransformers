@@ -23,7 +23,7 @@
 		"DISPLAY": "${localEnv:DISPLAY}",
 		"PYTHONUNBUFFERED": "True",
 		"UV_LINK_MODE": "copy",
-		"UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
+		"UV_PROJECT_ENVIRONMENT": "#{workspaceFolder}/.venv"
 	},
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	//"forwardPorts": [8000],
