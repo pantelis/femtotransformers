@@ -72,6 +72,5 @@
 			}
 		}
 	},
-	
 	"postStartCommand": "echo 'source /usr/share/bash-completion/completions/make' >> ~/.bashrc && eval \"$(ssh-agent -s)\" && ssh-add -l || true"
 }

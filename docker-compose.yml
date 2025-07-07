@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  femtotransformers:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.torch.gpu
+    image: femtotransformers:torch-gpu
+    container_name: femtotransformers-dev
+    volumes:
+      - .:/workspace
+      - ~/.ssh:/home/vscode/.ssh:ro
+      - ~/.gitconfig:/home/vscode/.gitconfig:ro
+    working_dir: /workspace
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - PYTHONUNBUFFERED=True
+      - UV_LINK_MODE=copy
+      - UV_PROJECT_ENVIRONMENT=/home/vscode/.venv
+    network_mode: host
+    stdin_open: true
+    tty: true
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    user: vscode
+    command: /bin/bash
+
+  tritonserver:
+    image: nvcr.io/nvidia/tritonserver:24.12-py3-sdk
+    container_name: triton-inference-server
+    ports:
+      - "8000:8000"  # HTTP
+      - "8001:8001"  # GRPC
+      - "8002:8002"  # Metrics
+    volumes:
+      - ./models:/models
+      - ./triton-logs:/logs
+    environment:
+      - CUDA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: |
+      tritonserver 
+      --model-repository=/models 
+      --strict-model-config=false 
+      --strict-readiness=false 
+      --allow-http=true 
+      --allow-grpc=true 
+      --allow-metrics=true
+      --log-verbose=1
+    depends_on:
+      - femtotransformers
+
+networks:
+  default:
+    name: femtotransformers-network
+    driver: bridge
+
+volumes:
+  models:
+    driver: local
+  triton-logs:
+    driver: local
